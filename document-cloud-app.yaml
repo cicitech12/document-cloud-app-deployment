@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: document-cloud
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/apipinic/document-cloud-app-deployment'
+    targetRevision: HEAD
+    path: helm-chart
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: document-cloud
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,8 @@
+{{- if .Values.ingress.enabled -}}
+1. Get the Ingress URL by running these commands:
+  {{- range .Values.ingress.hosts }}
+  http{{ if .tls }}s{{ end }}://{{ .host }}{{ range .paths }}{{ .path }}{{ end }}
+  {{- end }}
+{{- else }}
+1. The Ingress is disabled, you can enable it by setting `ingress.enabled` to `true` in the values.yaml.
+{{- end }}

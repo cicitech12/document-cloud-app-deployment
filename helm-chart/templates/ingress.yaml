@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-release-ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-hash: sha1
+    nginx.ingress.kubernetes.io/session-cookie-name: route
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - path: /documents
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.service.documentViewerService.name }}
+            port:
+              number: {{ .Values.service.documentViewerService.port }}
+      - path: /health-login
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.service.loginService.name }}
+            port:
+              number: {{ .Values.service.loginService.port }}
+      - path: /health-document
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.service.documentViewerService.name }}
+            port:
+              number: {{ .Values.service.documentViewerService.port }}
+      - path: /share
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.service.documentShareService.name }}
+            port:
+              number: {{ .Values.service.documentShareService.port }}
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.service.loginService.name }}
+            port:
+              number: {{ .Values.service.loginService.port }}

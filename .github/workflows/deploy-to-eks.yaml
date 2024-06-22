@@ -1,0 +1,80 @@
+name: Deploy to EKS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+
+      - name: Setup kubectl
+        run: |
+          curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+
+      - name: Setup kubeconfig
+        run: |
+          aws eks update-kubeconfig --name doc-cloud-4-EKS-1X5UORHONX4N3-DocumentCluster --region eu-central-1
+
+      - name: Check and Install Nginx Ingress Controller
+        run: |
+          echo "Checking if Nginx Ingress Controller is installed"
+          if ! kubectl get deployment -n ingress-nginx nginx-ingress-ingress-nginx-controller; then
+            echo "Nginx Ingress Controller not found, installing"
+            helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+            helm repo update
+            helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
+              --namespace ingress-nginx \
+              --create-namespace \
+              --set controller.replicaCount=2 \
+              --set controller.nodeSelector."kubernetes\.io/os"=linux \
+              --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
+          else
+            echo "Nginx Ingress Controller already installed"
+          fi
+
+      - name: Deploy Document-Cloud to EKS
+        run: |
+          echo "Checking node access with EKS user"
+          kubectl get nodes --as arn:aws:iam::252259669656:user/eks-deploy-user
+          echo "Installing Helm"
+          curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+          helm version
+          echo "Deploying Helm chart with overridden values from GitHub Secrets"
+          helm upgrade --install document-cloud-release-1 ./helm-chart \
+            --namespace document-cloud \
+            --create-namespace \
+            --set secretKey=${{ secrets.SECRET_KEY }} \
+            --set dockerconfigjson=${{ secrets.DOCKERCONFIGJSON }}
+          echo "Checking Helm release status"
+          helm list -A
+
+      - name: Wait for rollout to complete
+        run: |
+          kubectl rollout status deployment login-service --namespace document-cloud
+          kubectl rollout status deployment document-viewer --namespace document-cloud
+          kubectl rollout status deployment document-share --namespace document-cloud
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods --namespace document-cloud
+
+      - name: Clean up old pods
+        run: |
+          kubectl delete pod -n document-cloud --selector=app=login-service
+          kubectl delete pod -n document-cloud --selector=app=document-viewer
+          kubectl delete pod -n document-cloud --selector=app=document-share

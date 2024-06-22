@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: document-share
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: document-share
+  template:
+    metadata:
+      labels:
+        app: document-share
+    spec:
+      serviceAccountName: dynamo-users
+      containers:
+      - name: document-share
+        image: {{ .Values.image.repository }}/document-share:{{ .Values.image.tag }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8082
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: SECRET_KEY
+        - name: AWS_REGION
+          value: {{ .Values.awsRegion }}
+        - name: DYNAMO_DB_TABLE_NAME
+          value: {{ .Values.dynamoDbTableName }}
+        - name: S3_BUCKET_NAME
+          value: {{ .Values.s3BucketName }}
+      imagePullSecrets:
+      - name: dockerconfigjson-github-com

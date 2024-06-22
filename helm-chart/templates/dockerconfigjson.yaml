@@ -1,0 +1,10 @@
+{{- if .Values.createDockerConfigSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dockerconfigjson-github-com
+  namespace: {{ .Release.Namespace }}
+data:
+  .dockerconfigjson: {{ .Values.dockerconfigjson }}
+type: kubernetes.io/dockerconfigjson
+{{- end }}
